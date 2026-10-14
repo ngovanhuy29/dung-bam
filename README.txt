@@ -1,0 +1,1 @@
+Mở index.html bằng trình duyệt. Có thể đưa lên GitHub Pages/Netlify để có một đường link và thêm vào Màn hình chính trên iPhone.

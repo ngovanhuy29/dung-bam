@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#080808">
+<title>ĐỪNG BẤM</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#080808;color:#eee;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;min-height:100vh;overflow:hidden}
+.app{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:42px 18px 24px;position:relative}
+h1{font-size:30px;letter-spacing:6px;margin:18px 0 8px}
+.sub{color:#777;font-size:13px;text-align:center}
+.stage{width:100%;max-width:430px;flex:1;position:relative;display:flex;align-items:center;justify-content:center}
+#btn{width:145px;height:145px;border:0;border-radius:50%;background:#e21b23;color:white;font-size:18px;font-weight:800;letter-spacing:2px;box-shadow:0 0 35px #e21b2344, inset 0 0 0 4px #ffffff16;transition:.18s;position:absolute}
+#btn:active{transform:scale(.93)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button.small{border:1px solid #333;background:#151515;color:#ddd;border-radius:12px;padding:11px 15px}
+#toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#181818;border:1px solid #333;padding:12px 16px;border-radius:14px;opacity:0;transition:.25s;pointer-events:none;max-width:88%;text-align:center}
+#toast.show{opacity:1}
+#panel{position:fixed;inset:0;background:#090909f7;display:none;padding:55px 22px 25px;overflow:auto}
+.card{max-width:520px;margin:auto;background:#111;border:1px solid #292929;border-radius:18px;padding:20px}
+.card h2{margin-top:0}
+.item{padding:10px 0;border-bottom:1px solid #222;color:#bbb}
+.badge{display:inline-block;padding:5px 9px;border-radius:99px;background:#262626;color:#aaa;font-size:12px;margin:3px}
+.close{float:right}
+</style>
+</head>
+<body>
+<div class="app">
+<h1>ĐỪNG BẤM</h1>
+<div class="sub" id="status">Bạn biết là không nên mà...</div>
+<div class="stage"><button id="btn">ĐỪNG BẤM</button></div>
+<div class="controls">
+<button class="small" onclick="journal()">📖 Nhật ký</button>
+<button class="small" onclick="mini()">🎮 Chơi</button>
+<button class="small" onclick="resetGame()">↻ Làm lại</button>
+</div>
+</div>
+<div id="toast"></div>
+<div id="panel"><div class="card"><button class="small close" onclick="closePanel()">Đóng</button><div id="panelContent"></div></div></div>
+<script>
+const KEY="dung_bam_save_v1";
+let s=JSON.parse(localStorage.getItem(KEY)||'null')||{taps:0,discoveries:[],achievements:[],best:0};
+let rapid=[], timer=null;
+const secrets=[
+["Khởi đầu","Bạn đã bấm lần đầu."],["Nghi ngờ","Bạn vẫn tiếp tục."],["10 lần","Mười cú bấm. Thật sự?"],["Nhanh tay","Bạn bấm liên tục quá nhanh."],
+["Kiên trì","Bạn chưa chịu dừng lại."],["Bí mật góc trái","Có thứ gì đó vừa chuyển động."],["Bí mật góc phải","Bạn đã tìm thấy một dấu hiệu."],
+["Chạm lâu","Bạn giữ nút lâu hơn bình thường."],["Màu lạ","Nút không còn đỏ như trước."],["Thu nhỏ","Nút đã quyết định trốn."],
+["Thời gian","Bạn vẫn đang ở đây."],["Không thể cưỡng lại","Bạn quay lại sau khi rời đi."],["Cấp 2","Sự tò mò đang tăng."],["Cấp 3","Có vẻ bạn đã bị cuốn vào."],
+["Cấp 4","Nhật ký bắt đầu đầy lên."],["Cấp 5","Bạn đã đi khá xa."],["Sự im lặng","Bạn chờ quá lâu."],["Đảo hướng","Nút chạy sang nơi khác."],
+["Mất kiên nhẫn","Bạn bấm quá mạnh."],["Sai lựa chọn","Bạn vừa chọn điều không nên chọn."],["Đúng lựa chọn","Lần này bạn đã đúng."],
+["Phòng bí mật","Một căn phòng đã mở."],["Ba giây","Bạn canh thời gian rất chuẩn."],["Ký hiệu","Một chuỗi ký hiệu đã được giải."],
+["Vật ẩn","Bạn tìm thấy thứ không được liệt kê."],["Lần thứ 25","25 lần rồi."],["Lần thứ 30","Bạn vẫn chưa bỏ cuộc."],["Lần thứ 40","Không còn lời nào để nói."],
+["Bấm cuối ngày","Bạn vẫn chơi khi trời tối."],["Bấm đầu ngày","Một ngày mới bắt đầu."],["Quay lại","Bạn đã mở trò chơi lần nữa."],
+["Người quan sát","Có thứ đang quan sát bạn."],["Nút giả","Một nút không phải nút."],["Không bấm","Bạn đã không bấm trong một lúc."],
+["Phản xạ","Bạn phản ứng rất nhanh."],["Trốn tìm","Nút biến mất trong chốc lát."],["Đổi chỗ","Nó lại chạy."],
+["Lời cảnh báo","Có lẽ nên dừng lại."],["Không nghe","Bạn không nghe lời."],["Kết thúc?","Chưa đâu."],["Hạt giống","Một bí mật khác đã được mở."],
+["Chuỗi dài","Bạn đã tạo một chuỗi khám phá."],["Bậc thầy","Gần như tất cả đã được tìm thấy."],["ĐỪNG BẤM","Bạn đã hiểu tên trò chơi rồi."]
+];
+function save(){localStorage.setItem(KEY,JSON.stringify(s))}
+function discover(i){if(!s.discoveries.includes(i)){s.discoveries.push(i);toast("🔓 "+secrets[i][0]);save();}}
+function toast(t){let x=document.getElementById("toast");x.textContent=t;x.classList.add("show");clearTimeout(timer);timer=setTimeout(()=>x.classList.remove("show"),1800)}
+function level(){return Math.min(5,1+Math.floor(s.discoveries.length/9))}
+function tap(){
+ s.taps++; s.best=Math.max(s.best,s.taps); save();
+ const now=Date.now(); rapid=rapid.filter(x=>now-x<1200); rapid.push(now);
+ if(s.taps===1)discover(0); if(s.taps===10)discover(2); if(s.taps===25)discover(25); if(s.taps===30)discover(26); if(s.taps===40)discover(27);
+ if(rapid.length>=6)discover(3);
+ if(s.taps%7===0)discover(1);
+ if(level()>=2)discover(12); if(level()>=3)discover(13); if(level()>=4)discover(14); if(level()>=5)discover(15);
+ if(s.taps%11===0){discover(17);move()}
+ if(s.taps%13===0){discover(18);document.getElementById("btn").style.background="#8b1e9b"}
+ if(s.taps%17===0){discover(19);shrink()}
+ if(s.taps===50)discover(40);
+ document.getElementById("status").textContent=`Tò mò cấp ${level()} · ${s.discoveries.length}/${secrets.length} bí mật`;
+}
+function move(){let b=document.getElementById("btn"),st=document.querySelector(".stage");b.style.left=(20+Math.random()*65)+"%";b.style.top=(18+Math.random()*65)+"%"}
+function shrink(){let b=document.getElementById("btn");b.style.width=b.style.height=Math.max(72,145-(s.taps%6)*10)+"px"}
+let down;
+document.getElementById("btn").addEventListener("pointerdown",()=>{down=Date.now()});
+document.getElementById("btn").addEventListener("pointerup",()=>{if(Date.now()-down>900)discover(7);tap()});
+function journal(){
+ let c=`<h2>📖 Nhật ký bí mật</h2><p>Tò mò cấp <b>${level()}</b> · ${s.discoveries.length}/${secrets.length}</p>`;
+ s.discoveries.slice().reverse().forEach(i=>c+=`<div class="item"><b>${secrets[i][0]}</b><br>${secrets[i][1]}</div>`);
+ if(!s.discoveries.length)c+="<p>Chưa có bí mật nào. Và đó là điều tốt.</p>";
+ document.getElementById("panelContent").innerHTML=c;document.getElementById("panel").style.display="block";
+}
+function mini(){
+ document.getElementById("panelContent").innerHTML=`<h2>🎮 Phòng bí mật</h2><p>Chọn đúng trong 3 ô:</p><div style="display:flex;gap:10px">${[0,1,2].map(i=>`<button class="small" onclick="choice(${i})">Ô ${i+1}</button>`).join("")}</div>`;
+ document.getElementById("panel").style.display="block";discover(21);
+}
+function choice(i){if(i===1){discover(20);toast("🎉 Chính xác!")}else{discover(19);toast("❌ Sai rồi...")} }
+function closePanel(){document.getElementById("panel").style.display="none"}
+function resetGame(){if(confirm("Xóa toàn bộ tiến trình?")){localStorage.removeItem(KEY);location.reload()}}
+document.getElementById("status").textContent=`Tò mò cấp ${level()} · ${s.discoveries.length}/${secrets.length} bí mật`;
+setTimeout(()=>discover(11),2500);
+</script>
+</body></html>
